@@ -199,11 +199,10 @@ public class CricketNeo_Standard extends JFrame {
 
     private void handleTossLogic(int userNum) {
         int compNum = rand.nextInt(10) + 1;
-        boolean isEven = (userNum + compNum) % 2 == 0;
-        String result = isEven ? "e" : "o";
+        boolean isEven = CricketLogic.isTossSumEven(userNum, compNum);
         String numbersPicked = "You chose: " + userNum + "<br>Comp chose: " + compNum;
 
-        if (userTossChoice.equals(result)) {
+        if (CricketLogic.userWonToss(userTossChoice, userNum, compNum)) {
             lblMainDisplay.setText("<html><center>" + numbersPicked
                     + "<br><font color='orange'>YOU WON THE TOSS!</font><br>Select Game Mode Below.</center></html>");
             cl.show(cardPanel, "MODE");
@@ -355,20 +354,12 @@ public class CricketNeo_Standard extends JFrame {
         lblMainDisplay.setText("<html><center>Match Started!</center></html>");
     }
 
-    // FIXED: Crazy mode rules clarified
     private boolean isOut(int u, int c) {
-        if (isCrazyMode) {
-            return Math.abs(u - c) == 1; // OUT if difference is exactly 1
-        } else {
-            return u == c; // Normal mode OUT on exact match
-        }
+        return CricketLogic.isOut(isCrazyMode, u, c);
     }
 
     private int calculateRuns(int u, int c) {
-        if (isCrazyMode && u == c) {
-            return u * c; // BONUS multiply on exact match
-        }
-        return isUserBatting ? u : c;
+        return CricketLogic.calculateRuns(isCrazyMode, isUserBatting, u, c);
     }
 
     private void restartGame() {

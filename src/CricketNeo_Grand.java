@@ -26,7 +26,6 @@ public class CricketNeo_Grand extends JFrame {
 
     private int ballCounter = 0;
     private int nextTrigger = 0;
-    private List<String> activePowerUps = new ArrayList<>();
 
     // HyperCrazy state
     private String activePowerUp = null;
@@ -42,10 +41,9 @@ public class CricketNeo_Grand extends JFrame {
             "Shield Mode"
     };
 
-    // Normal cricket state
+    // Normal cricket state (single-wicket hand cricket: one dismissal ends the innings)
     private int wicketsLost = 0;
     private int ballsBowled = 0;
-    private final int maxWickets = 0;
 
     private JLabel lblContext;
 
@@ -160,6 +158,7 @@ public class CricketNeo_Grand extends JFrame {
             setupChoice();
         });
         modePanel.add(realBtn);
+        Real = realBtn;
 
         JButton hyperBtn = new JButton("HYPERCRAZY");
         hyperBtn.setBounds(340, 100, 160, 50);
@@ -175,6 +174,7 @@ public class CricketNeo_Grand extends JFrame {
             HyperCrazy();
         });
         modePanel.add(hyperBtn);
+        HyperCrazy = hyperBtn;
 
         choicePanel = createContainerPanel();
         addGameButton(choicePanel, "BATTING", 150, 50, 160, 60, e -> startMatch(true));
@@ -273,7 +273,7 @@ public class CricketNeo_Grand extends JFrame {
     }
 
     private void handleInput(int val) {
-        if (isRealMode && !(val == 1 || val == 2 || val == 4 || val == 6)) {
+        if (isRealMode && !CricketLogic.isValidRealModeChoice(val)) {
             lblMainDisplay.setText("<html><center><font color='red'>Invalid choice in REAL mode!<br>Pick 1, 2, 4, or 6 only.</font></center></html>");
             return;
         }
@@ -284,11 +284,10 @@ public class CricketNeo_Grand extends JFrame {
 
     private void handleTossLogic(int userNum) {
         int compNum = rand.nextInt(10) + 1;
-        boolean isEven = (userNum + compNum) % 2 == 0;
-        String result = isEven ? "e" : "o";
+        boolean isEven = CricketLogic.isTossSumEven(userNum, compNum);
         String numbersPicked = "You chose: " + userNum + "<br>Comp chose: " + compNum;
 
-        if (userTossChoice.equals(result)) {
+        if (CricketLogic.userWonToss(userTossChoice, userNum, compNum)) {
             lblMainDisplay.setText("<html><center>" + numbersPicked
                     + "<br><font color='orange'>YOU WON THE TOSS!</font><br>Select Game Mode Below.</center></html>");
             cl.show(cardPanel, "MODE");
@@ -334,122 +333,89 @@ public class CricketNeo_Grand extends JFrame {
 
     public void playGame(int userChoice) {
         int compChoice = rand.nextInt(10) + 1;
-        int runs = (userChoice == compChoice) ? 0 : userChoice;
-        String contextMessage = "";
+        String contextMessage = "Normal scoring.";
+        int battingScoreBefore = isUserBatting ? userScore : compScore;
 
         if (isHyperCrazyMode) {
             ballCounter++;
-
             if (ballCounter >= nextTrigger) {
-                int index = (int)(Math.random() * POWERUPS.length);
-                activePowerUp = POWERUPS[index];
-                powerUpDuration = 5 + (int)(Math.random() * 3);
-
+                activePowerUp = POWERUPS[(int) (Math.random() * POWERUPS.length)];
+                powerUpDuration = 5 + (int) (Math.random() * 3);
                 showPowerUpPopup(activePowerUp, powerUpDuration);
-
                 ballCounter = 0;
-                nextTrigger = 5 + (int)(Math.random() * 6);
-            }
-
-            if (activePowerUp != null && powerUpDuration > 0) {
-                switch (activePowerUp) {
-                    case "Double Runs":
-                        userScore += runs * 2;
-                        contextMessage = "Double Runs! Your " + runs + " doubled to " + (runs * 2);
-                        break;
-
-                    case "Reverse Scoring":
-                        int mapped = 11 - userChoice;
-                        userScore += mapped;
-                        contextMessage = "Reverse Scoring! Your " + userChoice + " counted as " + mapped;
-                        break;
-
-                    case "Sticky Wicket":
-                        if (userChoice == compChoice || Math.abs(userChoice - compChoice) == 1) {
-                            contextMessage = "Sticky Wicket! OUT because your choice matched or was close.";
-                            wicketsLost++;
-                            if (wicketsLost >= maxWickets) {
-                                lblMainDisplay.setText("All wickets lost! Game Over.");
-                                return;
-                            }
-                        } else {
-                            userScore += runs;
-                            contextMessage = "Sticky Wicket active, but you survived!";
-                        }
-                        break;
-
-                    case "Lucky Multiplier":
-                        int[] multipliers = {-3, -2, -1, 0, 1, 2, 3};
-                        int multiplier = multipliers[(int)(Math.random() * multipliers.length)];
-                        userScore += runs * multiplier;
-                        contextMessage = "Lucky Multiplier! Your " + runs + " × " + multiplier + " = " + (runs * multiplier);
-                        break;
-
-                    case "Fusion Runs":
-                        userScore += userChoice + compChoice;
-                        contextMessage = "Fusion Runs! Added both choices: " + userChoice + " + " + compChoice;
-                        break;
-
-                    case "Chaos Ball":
-                        if (userChoice == compChoice) {
-                            userScore = 0;
-                            contextMessage = "Chaos Ball! OUT wiped all your runs!";
-                        } else {
-                            userScore += runs * 3;
-                            contextMessage = "Chaos Ball! Your " + runs + " tripled to " + (runs * 3);
-                        }
-                        break;
-
-                    case "Shield Mode":
-                        userScore += runs / 2;
-                        contextMessage = "Shield Mode! OUTs ignored, but runs halved.";
-                        break;
-
-                    default:
-                        userScore += runs;
-                        contextMessage = "Normal scoring.";
-                }
-                powerUpDuration--;
-                if (powerUpDuration == 0) activePowerUp = null;
-
-            } else if (userChoice == compChoice) {
-                if (userChoice == compChoice) {
-                    contextMessage = "OUT!";
-                    wicketsLost++;
-                    if (wicketsLost >= maxWickets) {
-                        lblMainDisplay.setText("All wickets lost! Game Over.");
-                        return;
-                    }
-                } else {
-                    userScore += runs;
-                    contextMessage = "Normal scoring.";
-                }
-            } else{
-                userScore += runs;
-                contextMessage = "No power‑up active. Normal scoring.";
+                nextTrigger = 5 + (int) (Math.random() * 6);
             }
         }
 
-        ballsBowled++;
+        StringBuilder msg = new StringBuilder("<html><center>");
+        boolean isDismissal;
+        int runsScored;
+        boolean scoreWiped = false;
 
-        // ✅ Update GUI labels
-        lblMainDisplay.setText("<html><center>You: " + userChoice + " | Comp: " + compChoice + "</center></html>");
+        if (isHyperCrazyMode && activePowerUp != null && powerUpDuration > 0) {
+            int baseRuns = calculateRuns(userChoice, compChoice);
+            int[] multipliers = {-3, -2, -1, 0, 1, 2, 3};
+            int luckyMultiplier = multipliers[(int) (Math.random() * multipliers.length)];
+
+            CricketLogic.PowerUpResult r = CricketLogic.applyPowerUp(
+                    activePowerUp, userChoice, compChoice, baseRuns, luckyMultiplier);
+
+            contextMessage = r.message;
+            isDismissal = r.isOut;
+            runsScored = r.scoreDelta;
+            scoreWiped = r.resetScore;
+
+            powerUpDuration--;
+            if (powerUpDuration == 0) activePowerUp = null;
+        } else {
+            isDismissal = isOut(userChoice, compChoice);
+            runsScored = isDismissal ? 0 : calculateRuns(userChoice, compChoice);
+        }
+
+        if (isDismissal) {
+            wicketsLost++;
+            handleOutSequence(msg, compChoice, battingScoreBefore);
+            if (isHyperCrazyMode) lblContext.setText("Context: " + contextMessage);
+            return;
+        }
+
+        ballsBowled++;
+        if (scoreWiped) {
+            if (isUserBatting) userScore = 0; else compScore = 0;
+        } else if (isUserBatting) {
+            userScore += runsScored;
+        } else {
+            compScore += runsScored;
+        }
+
+        msg.append("You: ").append(userChoice).append(" | Comp: ").append(compChoice)
+                .append("<br>").append(isUserBatting ? "You scored: " : "Comp scored: ").append(runsScored);
+
+        if (!isFirstInnings) {
+            msg.append("<br>Target: ").append(target);
+            int battingScore = isUserBatting ? userScore : compScore;
+            if (battingScore >= target) {
+                msg.append("<br><font color='orange'>TARGET REACHED!</font><br>GAME OVER");
+                lblMainDisplay.setText(msg.append("</center></html>").toString());
+                lblMiniScore.setText("Score: " + userScore + " - " + compScore);
+                cl.show(cardPanel, "END");
+                showFinalPopup();
+                return;
+            }
+        }
+
+        lblMainDisplay.setText(msg.append("</center></html>").toString());
         lblMiniScore.setText("Score: " + userScore + " - " + compScore);
         lblStatus.setText("Balls: " + ballsBowled + " | Wickets: " + wicketsLost);
 
         if (isHyperCrazyMode) {
             lblContext.setText("Context: " + contextMessage);
             lblPowerUpBanner.setText(
-                    (activePowerUp != null ? "Active Power‑Up: " + activePowerUp + " (" + powerUpDuration + " balls left)" : "Active Power‑Up: None")
+                    activePowerUp != null
+                            ? "Active Power‑Up: " + activePowerUp + " (" + powerUpDuration + " balls left)"
+                            : "Active Power‑Up: None"
             );
         }
-    }
-
-    private void endInnings() {
-        isHyperCrazyMode = false;
-        JOptionPane.showMessageDialog(null,
-                "Innings Over!\nFinal Score: " + userScore + "/" + wicketsLost,
-                "Match Result", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void handleOutSequence(StringBuilder msg, int compMove, int finalScore) {
@@ -541,20 +507,12 @@ public class CricketNeo_Grand extends JFrame {
         lblMainDisplay.setText("<html><center>Match Started!</center></html>");
     }
 
-    // FIXED: Crazy mode rules clarified
     private boolean isOut(int u, int c) {
-        if (isCrazyMode) {
-            return Math.abs(u - c) == 1; // OUT if difference is exactly 1
-        } else {
-            return u == c; // Normal mode OUT on exact match
-        }
+        return CricketLogic.isOut(isCrazyMode, u, c);
     }
 
     private int calculateRuns(int u, int c) {
-        if (isCrazyMode && u == c) {
-            return u * c; // BONUS multiply on exact match
-        }
-        return isUserBatting ? u : c;
+        return CricketLogic.calculateRuns(isCrazyMode, isUserBatting, u, c);
     }
 
     private void restartGame() {
