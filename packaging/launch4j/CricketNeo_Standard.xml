@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch4jConfig>
+  <dontWrapJar>true</dontWrapJar>
+  <headerType>gui</headerType>
+  <jar>../../out/artifacts/CricketNeo_jar/CricketNeo_Standard.jar</jar>
+  <outfile>../../out/artifacts/CricketNeo_jar/CricketNeo_Standard.exe</outfile>
+  <errTitle></errTitle>
+  <cmdLine></cmdLine>
+  <chdir>.</chdir>
+  <priority>normal</priority>
+  <downloadUrl></downloadUrl>
+  <supportUrl></supportUrl>
+  <stayAlive>true</stayAlive>
+  <restartOnCrash>true</restartOnCrash>
+  <manifest></manifest>
+  <icon>../../src/resources/CricketNeo.ico</icon>
+  <jre>
+    <path>../../out/artifacts/CricketNeo_jar/custom-jre</path>
+    <requiresJdk>false</requiresJdk>
+    <requires64Bit>false</requires64Bit>
+    <minVersion>26</minVersion>
+    <maxVersion></maxVersion>
+  </jre>
+  <versionInfo>
+    <fileVersion>1.0.0.0</fileVersion>
+    <txtFileVersion>1.0.0.0</txtFileVersion>
+    <fileDescription>Cricket in a Desktop App</fileDescription>
+    <copyright>Copyright (c) 2026 AdventureWorks</copyright>
+    <productVersion>1.0.0.0</productVersion>
+    <txtProductVersion>1.0.0.0</txtProductVersion>
+    <productName>CricketNeo Standard</productName>
+    <companyName></companyName>
+    <internalName>CricketNeo Standard</internalName>
+    <originalFilename>CricketNeo_Standard.exe</originalFilename>
+    <trademarks></trademarks>
+    <language>ENGLISH_US</language>
+  </versionInfo>
+</launch4jConfig>
