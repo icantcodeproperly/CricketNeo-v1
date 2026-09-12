@@ -75,6 +75,35 @@ java -cp out/production/CricketNeo CricketNeo_Standard
 (`out/` is git-ignored; IntelliJ manages its own copy of this same layout,
 plus a jar + launch4j `.exe` artifact under `out/artifacts/`.)
 
+## Building the Windows .exe
+
+`CricketNeo_Standard` can be wrapped into a standalone `CricketNeo_Standard.exe`
+(via [Launch4j](https://launch4j.sourceforge.net/)) that bundles its own Java
+runtime, so it runs on a machine with no JDK installed. The tracked config is
+[`packaging/launch4j/CricketNeo_Standard.xml`](packaging/launch4j/CricketNeo_Standard.xml)
+and its icon is [`src/resources/CricketNeo.ico`](src/resources/CricketNeo.ico).
+
+1. **Build the jar** (Main-Class comes from `src/META-INF/MANIFEST.MF`):
+   ```bash
+   javac -d out/artifacts/CricketNeo_jar/build src/CricketNeo_Standard.java src/CricketLogic.java
+   cp -r src/resources out/artifacts/CricketNeo_jar/build/
+   jar --create --file out/artifacts/CricketNeo_jar/CricketNeo_Standard.jar --main-class CricketNeo_Standard -C out/artifacts/CricketNeo_jar/build .
+   ```
+2. **Bundle a runtime**, if `out/artifacts/CricketNeo_jar/custom-jre` doesn't already
+   exist (a `jlink` image, so it only needs to be built once per JDK version):
+   ```bash
+   jlink --module-path "$JAVA_HOME/jmods" --add-modules java.base,java.datatransfer,java.xml,java.prefs,java.desktop --output out/artifacts/CricketNeo_jar/custom-jre --no-header-files --no-man-pages
+   ```
+3. **Wrap it into an .exe** with Launch4j's console builder (`launch4jc.exe`,
+   installed separately — [download](https://launch4j.sourceforge.net/)):
+   ```bash
+   launch4jc packaging/launch4j/CricketNeo_Standard.xml
+   ```
+
+The result is self-contained: `CricketNeo_Standard.exe` needs
+`CricketNeo_Standard.jar` and `custom-jre/` alongside it (all three live under
+`out/artifacts/CricketNeo_jar/`), but nothing else.
+
 ## Running the tests
 
 The project has no build tool, so tests are plain Java with no external
