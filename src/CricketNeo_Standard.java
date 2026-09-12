@@ -6,23 +6,45 @@ import java.util.Random;
 import java.awt.event.*;
 
 public class CricketNeo_Standard extends JFrame {
+    // ---- game state (unchanged rules; ballsThisInnings is display-only) ----
     private int userScore = 0, compScore = 0, target = -1;
     private boolean isUserBatting, isFirstInnings = true, isCrazyMode = false;
     private String userTossChoice;
     private Random rand = new Random();
+    private int ballsThisInnings = 0;
+    private boolean roleBatting = false;
 
-    // GUI Components
-    private JLabel lblHeader, lblStatus, lblMainDisplay, lblMiniScore;
+    // ---- theme palette ----
+    private boolean isDarkTheme = true;
+    private Color cBg, cSurface, cInk, cMuted, cAccent, cGood, cLine;
+
+    private static final Color LIGHT_BG = new Color(0xF6, 0xF5, 0xF1);
+    private static final Color LIGHT_SURFACE = Color.WHITE;
+    private static final Color LIGHT_INK = new Color(0x1A, 0x1D, 0x1A);
+    private static final Color LIGHT_MUTED = new Color(0x72, 0x6B, 0x66);
+    private static final Color LIGHT_ACCENT = new Color(0xB2, 0x3A, 0x2E);
+    private static final Color LIGHT_GOOD = new Color(0x2F, 0x8F, 0x5B);
+    private static final Color LIGHT_LINE = new Color(0xE1, 0xDC, 0xD2);
+
+    private static final Color DARK_BG = new Color(0x17, 0x15, 0x13);
+    private static final Color DARK_SURFACE = new Color(0x21, 0x1E, 0x1B);
+    private static final Color DARK_INK = new Color(0xEF, 0xEC, 0xE4);
+    private static final Color DARK_MUTED = new Color(0xA3, 0x9C, 0x94);
+    private static final Color DARK_ACCENT = new Color(0xE2, 0x68, 0x5A);
+    private static final Color DARK_GOOD = new Color(0x5F, 0xBB, 0x87);
+    private static final Color DARK_LINE = new Color(0x3A, 0x36, 0x32);
+
+    // ---- GUI components ----
+    private JLabel lblHeader;
     private JButton btnTheme, btnHelp;
+    private RoundedPanel dashboardCard, modeChipPill, needPill, roleDot;
+    private JLabel lblPhase, lblModeChip, lblScoreBig, lblTargetText, lblNeedText, lblRoleText, lblBallsFaced, lblContext, lblTrayLabel;
+    private JPanel dividerLine;
     private JPanel cardPanel, tossPanel, modePanel, choicePanel, playPanel, endPanel;
     private CardLayout cl = new CardLayout();
 
-    private List<JButton> gameButtons = new ArrayList<>();
-
-    private Color darkBG = new Color(20, 20, 20);
-    private Color lightBG = Color.WHITE;
-
-    private JFrame frame;
+    private List<JButton> actionButtons = new ArrayList<>();
+    private List<RoundButton> numberButtons = new ArrayList<>();
 
     public CricketNeo_Standard() {
         setTitle("CricketNeo - Hand Cricket Pro");
@@ -35,84 +57,171 @@ public class CricketNeo_Standard extends JFrame {
             }
         });
         setLayout(null);
-        getContentPane().setBackground(darkBG);
         setLocationRelativeTo(null);
         setResizable(false);
         setIconImage(
                 new ImageIcon(getClass().getResource("resources/CricketNeo.png")).getImage()
         );
 
-        // --- TOP UTILITY BUTTONS ---
-        int btnSize = 49;
-        int gap = 5;
-        int rightMargin = 20;
+        buildUtilityButtons();
+        buildHeader();
+        buildDashboard();
+        buildCardPanel();
 
-        btnTheme = new JButton("🌙"); // FIX: dark mode starts with moon
-        btnTheme.setBounds(750 - rightMargin - btnSize, 20, btnSize, 30);
-        styleUtilityButton(btnTheme);
+        applyTheme(isDarkTheme);
+        updateScoreboard();
+        cl.show(cardPanel, "TOSS");
+        setVisible(true);
+    }
+
+    // ---------------------------------------------------------------
+    // GUI construction
+    // ---------------------------------------------------------------
+
+    private void buildUtilityButtons() {
+        int btnSize = 44, gap = 6, rightMargin = 20;
+
+        btnTheme = new RoundButton("☾", 10);
+        btnTheme.setBounds(750 - rightMargin - btnSize, 16, btnSize, 28);
+        btnTheme.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 18));
         btnTheme.addActionListener(e -> toggleTheme());
         add(btnTheme);
 
-        btnHelp = new JButton("?");
-        btnHelp.setBounds(750 - rightMargin - (2 * btnSize) - gap, 20, btnSize, 30);
-        styleUtilityButton(btnHelp);
+        btnHelp = new RoundButton("?", 10);
+        btnHelp.setBounds(750 - rightMargin - (2 * btnSize) - gap, 16, btnSize, 28);
+        btnHelp.setFont(new Font("SansSerif", Font.BOLD, 14));
         btnHelp.addActionListener(e -> showInstructions());
         add(btnHelp);
+    }
 
-        // --- HEADER & SCORE ---
+    private void buildHeader() {
         lblHeader = new JLabel("CRICKET NEO", SwingConstants.CENTER);
-        lblHeader.setBounds(225, 10, 300, 40);
-        lblHeader.setForeground(Color.CYAN);
-        lblHeader.setFont(new Font("Segoe UI", Font.BOLD, 32));
+        lblHeader.setBounds(0, 14, 750, 34);
+        lblHeader.setFont(new Font("Segoe UI", Font.BOLD, 22));
         add(lblHeader);
+    }
 
-        lblMiniScore = new JLabel("Score: 0 - 0", SwingConstants.CENTER);
-        lblMiniScore.setBounds(225, 50, 300, 30);
-        lblMiniScore.setForeground(Color.WHITE);
-        lblMiniScore.setFont(new Font("Monospaced", Font.BOLD, 22));
-        add(lblMiniScore);
+    private void buildDashboard() {
+        dashboardCard = new RoundedPanel(16);
+        dashboardCard.setLayout(null);
+        dashboardCard.setBounds(40, 58, 670, 230);
+        add(dashboardCard);
 
-        lblStatus = new JLabel("WELCOME PLAYER", SwingConstants.CENTER);
-        lblStatus.setBounds(100, 110, 550, 30);
-        lblStatus.setForeground(Color.GRAY);
-        lblStatus.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        add(lblStatus);
+        lblPhase = new JLabel("TOSS");
+        lblPhase.setBounds(20, 14, 300, 22);
+        lblPhase.setFont(new Font("Consolas", Font.BOLD, 13));
+        dashboardCard.add(lblPhase);
 
-        lblMainDisplay = new JLabel("<html><center>TIME FOR THE TOSS!<br>Choose ODD or EVEN below to start.</center></html>", SwingConstants.CENTER);
-        lblMainDisplay.setBounds(50, 150, 650, 150);
-        lblMainDisplay.setForeground(Color.YELLOW);
-        lblMainDisplay.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        add(lblMainDisplay);
+        modeChipPill = new RoundedPanel(12);
+        modeChipPill.setLayout(new BorderLayout());
+        modeChipPill.setBounds(390, 10, 260, 28);
+        modeChipPill.setVisible(false);
+        lblModeChip = new JLabel("", SwingConstants.CENTER);
+        lblModeChip.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        modeChipPill.add(lblModeChip, BorderLayout.CENTER);
+        dashboardCard.add(modeChipPill);
 
-        // --- BUTTON CARD PANEL ---
+        lblScoreBig = new JLabel("0 – 0");
+        lblScoreBig.setBounds(20, 44, 210, 56);
+        lblScoreBig.setFont(new Font("Consolas", Font.BOLD, 36));
+        dashboardCard.add(lblScoreBig);
+
+        lblTargetText = new JLabel("");
+        lblTargetText.setBounds(235, 66, 190, 22);
+        lblTargetText.setFont(new Font("Consolas", Font.BOLD, 13));
+        lblTargetText.setVisible(false);
+        dashboardCard.add(lblTargetText);
+
+        needPill = new RoundedPanel(8);
+        needPill.setLayout(new BorderLayout());
+        needPill.setBounds(430, 60, 180, 30);
+        needPill.setVisible(false);
+        lblNeedText = new JLabel("", SwingConstants.CENTER);
+        lblNeedText.setFont(new Font("Consolas", Font.BOLD, 12));
+        needPill.add(lblNeedText, BorderLayout.CENTER);
+        dashboardCard.add(needPill);
+
+        roleDot = new RoundedPanel(6);
+        roleDot.setBounds(20, 116, 12, 12);
+        dashboardCard.add(roleDot);
+
+        lblRoleText = new JLabel("—");
+        lblRoleText.setBounds(38, 112, 150, 20);
+        lblRoleText.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        dashboardCard.add(lblRoleText);
+
+        lblBallsFaced = new JLabel("");
+        lblBallsFaced.setBounds(200, 112, 400, 20);
+        lblBallsFaced.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        dashboardCard.add(lblBallsFaced);
+
+        dividerLine = new JPanel();
+        dividerLine.setBounds(20, 144, 630, 1);
+        dashboardCard.add(dividerLine);
+
+        lblContext = new JLabel("<html><center>Choose ODD or EVEN below to begin.</center></html>", SwingConstants.CENTER);
+        lblContext.setBounds(20, 154, 630, 64);
+        lblContext.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        dashboardCard.add(lblContext);
+    }
+
+    private void buildCardPanel() {
         cardPanel = new JPanel(cl);
-        cardPanel.setBounds(50, 350, 650, 200);
+        cardPanel.setBounds(40, 302, 670, 308);
         cardPanel.setOpaque(false);
 
         tossPanel = createContainerPanel();
-        addGameButton(tossPanel, "ODD", 180, 50, 120, 50, e -> startToss("o"));
-        addGameButton(tossPanel, "EVEN", 340, 50, 120, 50, e -> startToss("e"));
+        addActionButton(tossPanel, "ODD", 185, 120, 140, 54, e -> startToss("o"));
+        addActionButton(tossPanel, "EVEN", 345, 120, 140, 54, e -> startToss("e"));
 
         playPanel = createContainerPanel();
+        lblTrayLabel = new JLabel("PLAY A BALL");
+        lblTrayLabel.setBounds(25, 20, 300, 20);
+        lblTrayLabel.setFont(new Font("Consolas", Font.BOLD, 11));
+        playPanel.add(lblTrayLabel);
+
+        JPanel numPad = new JPanel(new GridLayout(2, 5, 12, 12));
+        numPad.setOpaque(false);
+        numPad.setBounds(25, 70, 620, 170);
         for (int i = 0; i < 10; i++) {
             int val = i + 1;
-            int x = (i % 5) * 125 + 15;
-            int y = (i / 5) * 70 + 20;
-            addGameButton(playPanel, String.valueOf(val), x, y, 100, 50, e -> handleInput(val));
+            RoundButton b = new RoundButton(String.valueOf(val), 10);
+            b.setFont(new Font("Consolas", Font.BOLD, 20));
+            b.addActionListener(e -> handleInput(val));
+            b.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    b.setBackground(mix(cSurface, cAccent, 0.35));
+                }
+
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    b.setBackground(cSurface);
+                }
+            });
+            numberButtons.add(b);
+            numPad.add(b);
         }
+        playPanel.add(numPad);
 
         modePanel = createContainerPanel();
-        addGameButton(modePanel, "NORMAL", 180, 50, 120, 50, e -> { isCrazyMode = false; setupChoice(); });
-        addGameButton(modePanel, "CRAZY", 340, 50, 120, 50, e -> { isCrazyMode = true; setupChoice(); });
+        addActionButton(modePanel, "NORMAL", 185, 120, 140, 54, e -> {
+            isCrazyMode = false;
+            setupChoice();
+        });
+        addActionButton(modePanel, "CRAZY", 345, 120, 140, 54, e -> {
+            isCrazyMode = true;
+            setupChoice();
+        });
 
         choicePanel = createContainerPanel();
-        addGameButton(choicePanel, "BATTING", 150, 50, 160, 60, e -> startMatch(true));
-        addGameButton(choicePanel, "BOWLING", 330, 50, 160, 60, e -> startMatch(false));
+        addActionButton(choicePanel, "BATTING", 155, 115, 170, 60, e -> startMatch(true));
+        addActionButton(choicePanel, "BOWLING", 345, 115, 170, 60, e -> startMatch(false));
 
         endPanel = createContainerPanel();
-        addGameButton(endPanel, "RESULTS!", 100, 50, 140, 55, e -> showFinalPopup());
-        addGameButton(endPanel, "RESTART", 260, 50, 140, 55, e -> restartGame());
-        addGameButton(endPanel, "EXIT", 420, 50, 140, 55, e -> confirmExit());
+        addActionButton(endPanel, "RESULTS!", 90, 125, 150, 56, e -> showFinalPopup());
+        addActionButton(endPanel, "RESTART", 260, 125, 150, 56, e -> restartGame());
+        addActionButton(endPanel, "EXIT", 430, 125, 150, 56, e -> confirmExit());
 
         cardPanel.add(tossPanel, "TOSS");
         cardPanel.add(playPanel, "PLAY");
@@ -121,8 +230,6 @@ public class CricketNeo_Standard extends JFrame {
         cardPanel.add(endPanel, "END");
 
         add(cardPanel);
-        cl.show(cardPanel, "TOSS");
-        setVisible(true);
     }
 
     private JPanel createContainerPanel() {
@@ -131,65 +238,168 @@ public class CricketNeo_Standard extends JFrame {
         return p;
     }
 
-    private void addGameButton(JPanel panel, String text, int x, int y, int w, int h, java.awt.event.ActionListener al) {
-        JButton b = new JButton(text);
+    private void addActionButton(JPanel panel, String text, int x, int y, int w, int h, ActionListener al) {
+        RoundButton b = new RoundButton(text, 10);
         b.setBounds(x, y, w, h);
-        b.setFont(new Font("SansSerif", Font.BOLD, 16));
-        b.setBackground(new Color(125, 236, 70));
-        b.setForeground(Color.DARK_GRAY);
-        b.setFocusPainted(false);
+        b.setFont(new Font("Segoe UI", Font.BOLD, 16));
         b.addActionListener(al);
-        gameButtons.add(b);
+        actionButtons.add(b);
         panel.add(b);
     }
 
-    private void styleUtilityButton(JButton btn) {
-        btn.setFont(new Font("SansSerif", Font.BOLD, 14));
-        btn.setBackground(new Color(182, 127, 241));
-        btn.setForeground(Color.BLACK);
-        btn.setFocusPainted(false);
-    }
+    /** Simple rounded-rectangle container, used for the dashboard card and its pill badges. */
+    private static class RoundedPanel extends JPanel {
+        private final int radius;
 
-    private void toggleTheme() {
-        boolean isDark = getContentPane().getBackground().equals(darkBG);
-        if (isDark) {
-            getContentPane().setBackground(lightBG);
-            lblMiniScore.setForeground(Color.BLACK);
-            lblStatus.setForeground(Color.DARK_GRAY);
-            lblHeader.setForeground(new Color(25, 100, 175));
-            lblMainDisplay.setForeground(new Color(221, 173, 16));
-            btnTheme.setText("🌙");
-            btnTheme.setBackground(new Color(83, 13, 227));
-            btnTheme.setForeground(Color.WHITE);
-            btnHelp.setBackground(new Color(83, 13, 227));
-            btnHelp.setForeground(Color.WHITE);
-            for (JButton b : gameButtons) {
-                b.setBackground(new Color(15, 168, 10));
-                b.setForeground(Color.WHITE);
-            }
-        } else {
-            getContentPane().setBackground(darkBG);
-            lblMiniScore.setForeground(Color.WHITE);
-            lblStatus.setForeground(Color.GRAY);
-            lblHeader.setForeground(Color.CYAN);
-            lblMainDisplay.setForeground(Color.YELLOW);
-            btnTheme.setText("☀️");
-            btnTheme.setBackground(new Color(182, 127, 241));
-            btnTheme.setForeground(Color.BLACK);
-            btnHelp.setBackground(new Color(182, 127, 241));
-            btnHelp.setForeground(Color.BLACK);
-            for (JButton b : gameButtons) {
-                b.setBackground(new Color(125, 236, 70));
-                b.setForeground(Color.DARK_GRAY);
-            }
+        RoundedPanel(int radius) {
+            this.radius = radius;
+            setOpaque(false);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(getBackground());
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), radius, radius);
+            g2.dispose();
         }
     }
+
+    /** Rounded-rectangle button, used for every clickable control in the new GUI. */
+    private static class RoundButton extends JButton {
+        private final int radius;
+
+        RoundButton(String text, int radius) {
+            super(text);
+            this.radius = radius;
+            setContentAreaFilled(false);
+            setFocusPainted(false);
+            setBorderPainted(false);
+            setOpaque(false);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(getBackground());
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), radius, radius);
+            g2.dispose();
+            super.paintComponent(g);
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Theming
+    // ---------------------------------------------------------------
+
+    private void toggleTheme() {
+        applyTheme(!isDarkTheme);
+    }
+
+    private void applyTheme(boolean dark) {
+        isDarkTheme = dark;
+        cBg = dark ? DARK_BG : LIGHT_BG;
+        cSurface = dark ? DARK_SURFACE : LIGHT_SURFACE;
+        cInk = dark ? DARK_INK : LIGHT_INK;
+        cMuted = dark ? DARK_MUTED : LIGHT_MUTED;
+        cAccent = dark ? DARK_ACCENT : LIGHT_ACCENT;
+        cGood = dark ? DARK_GOOD : LIGHT_GOOD;
+        cLine = dark ? DARK_LINE : LIGHT_LINE;
+
+        getContentPane().setBackground(cBg);
+
+        btnTheme.setText(dark ? "☾" : "☀");
+        btnTheme.setBackground(cSurface);
+        btnTheme.setForeground(cInk);
+        btnHelp.setBackground(cSurface);
+        btnHelp.setForeground(cInk);
+
+        lblHeader.setForeground(cAccent);
+
+        dashboardCard.setBackground(cSurface);
+        lblPhase.setForeground(cMuted);
+        modeChipPill.setBackground(cBg);
+        lblModeChip.setForeground(cInk);
+        lblScoreBig.setForeground(cInk);
+        lblTargetText.setForeground(cMuted);
+        needPill.setBackground(cAccent);
+        lblNeedText.setForeground(Color.WHITE);
+        lblRoleText.setForeground(cInk);
+        lblBallsFaced.setForeground(cMuted);
+        dividerLine.setBackground(cLine);
+        lblContext.setForeground(cMuted);
+        refreshRoleDotColor();
+
+        if (lblTrayLabel != null) {
+            lblTrayLabel.setForeground(cMuted);
+        }
+        for (JButton b : actionButtons) {
+            b.setBackground(cAccent);
+            b.setForeground(Color.WHITE);
+        }
+        for (RoundButton b : numberButtons) {
+            b.setBackground(cSurface);
+            b.setForeground(cInk);
+        }
+
+        repaint();
+    }
+
+    /** Blends {@code base} toward {@code target} by {@code ratio} (0 = base, 1 = target). */
+    private static Color mix(Color base, Color target, double ratio) {
+        int r = (int) Math.round(base.getRed() * (1 - ratio) + target.getRed() * ratio);
+        int g = (int) Math.round(base.getGreen() * (1 - ratio) + target.getGreen() * ratio);
+        int b = (int) Math.round(base.getBlue() * (1 - ratio) + target.getBlue() * ratio);
+        return new Color(r, g, b);
+    }
+
+    private void refreshRoleDotColor() {
+        if (roleDot != null) {
+            roleDot.setBackground(roleBatting ? cGood : cMuted);
+            roleDot.repaint();
+        }
+    }
+
+    private void setRole(String text, boolean batting) {
+        lblRoleText.setText(text);
+        roleBatting = batting;
+        refreshRoleDotColor();
+    }
+
+    private String modeChipText() {
+        return isCrazyMode
+                ? "CRAZY · out on ±1, exact match = bonus"
+                : "NORMAL · out on exact match";
+    }
+
+    private void updateScoreboard() {
+        lblScoreBig.setText(userScore + " – " + compScore);
+
+        boolean showTarget = !isFirstInnings && target > 0;
+        lblTargetText.setVisible(showTarget);
+        needPill.setVisible(showTarget);
+        if (showTarget) {
+            lblTargetText.setText("/ TARGET " + target);
+            int battingScore = isUserBatting ? userScore : compScore;
+            int need = Math.max(target - battingScore, 0);
+            lblNeedText.setText("NEED " + need);
+        }
+
+        lblBallsFaced.setText(ballsThisInnings + (ballsThisInnings == 1 ? " ball faced" : " balls faced") + " this innings");
+    }
+
+    // ---------------------------------------------------------------
+    // Game flow (mechanics unchanged from before; only what's displayed differs)
+    // ---------------------------------------------------------------
 
     private void startToss(String choice) {
         userTossChoice = choice;
         cl.show(cardPanel, "PLAY");
-        lblStatus.setText("TOSS STEP 2");
-        lblMainDisplay.setText("<html><center>You chose " + (choice.equals("o") ? "ODD" : "EVEN") + ".<br>Pick a number for the toss!</center></html>");
+        lblPhase.setText("TOSS");
+        lblContext.setText("<html><center>You chose " + (choice.equals("o") ? "ODD" : "EVEN")
+                + ".<br>Pick a number for the toss!</center></html>");
     }
 
     private void handleInput(int val) {
@@ -203,8 +413,9 @@ public class CricketNeo_Standard extends JFrame {
         String numbersPicked = "You chose: " + userNum + "<br>Comp chose: " + compNum;
 
         if (CricketLogic.userWonToss(userTossChoice, userNum, compNum)) {
-            lblMainDisplay.setText("<html><center>" + numbersPicked
-                    + "<br><font color='orange'>YOU WON THE TOSS!</font><br>Select Game Mode Below.</center></html>");
+            lblPhase.setText("SELECT MODE");
+            lblContext.setText("<html><center>" + numbersPicked
+                    + "<br><b>YOU WON THE TOSS!</b><br>Select your mode below.</center></html>");
             cl.show(cardPanel, "MODE");
         } else {
             isCrazyMode = rand.nextBoolean();
@@ -218,83 +429,83 @@ public class CricketNeo_Standard extends JFrame {
                     + "Mode: " + (isCrazyMode ? "CRAZY" : "NORMAL") + "\n"
                     + "Comp chose to: " + (compChoiceToBat ? "BAT" : "BOWL");
 
+            lblModeChip.setText(modeChipText());
+            modeChipPill.setVisible(true);
+
             JOptionPane.showMessageDialog(this, tossLossMsg, "Toss Result", JOptionPane.INFORMATION_MESSAGE);
             startMatch(isUserBatting);
         }
-        // FIX: reset only after toss is fully processed
         userTossChoice = null;
     }
 
     private void playGame(int user) {
         int comp = rand.nextInt(10) + 1;
-        StringBuilder msg = new StringBuilder("<html><center>");
+        ballsThisInnings++;
+
         if (isUserBatting) {
             if (isOut(user, comp)) {
-                handleOutSequence(msg, comp, userScore);
+                handleOutSequence(comp, userScore);
                 return;
-            } else {
-                int runs = calculateRuns(user, comp);
-                userScore += runs;
-                msg.append("Comp bowled: ").append(comp)
-                        .append(isCrazyMode && user == comp ? "<br>BONUS MULTIPLY!" : "")
-                        .append("<br>You scored: ").append(runs)
-                        .append("<br>Total: ").append(userScore);
-                if (!isFirstInnings) {
-                    msg.append("<br>Target: ").append(target);
-                    if (userScore >= target) {
-                        lblMainDisplay.setText("<html><center>Comp bowled: " + comp
-                                + "<br><font color='orange'>TARGET REACHED!</font><br>GAME OVER</center></html>");
-                        lblMiniScore.setText("Score: " + userScore + " - " + compScore);
-                        cl.show(cardPanel, "END");
-                        showFinalPopup(); // FIX: auto show results
-                        return;
-                    }
-                }
+            }
+            int runs = calculateRuns(user, comp);
+            userScore += runs;
+            boolean bonus = isCrazyMode && user == comp;
+            lblContext.setText("<html><center>Comp bowled: " + comp
+                    + (bonus ? "<br><b>BONUS MULTIPLY!</b>" : "")
+                    + "<br>You scored: " + runs + "</center></html>");
+            updateScoreboard();
+            if (!isFirstInnings && userScore >= target) {
+                lblContext.setText("<html><center>Comp bowled: " + comp
+                        + "<br><b>TARGET REACHED!</b><br>GAME OVER</center></html>");
+                lblPhase.setText("MATCH OVER");
+                updateScoreboard();
+                cl.show(cardPanel, "END");
+                showFinalPopup();
             }
         } else {
             if (isOut(user, comp)) {
-                handleOutSequence(msg, comp, compScore);
+                handleOutSequence(comp, compScore);
                 return;
-            } else {
-                int runs = calculateRuns(user, comp);
-                compScore += runs;
-                msg.append("Comp put: ").append(comp)
-                        .append(isCrazyMode && user == comp ? "<br>BONUS MULTIPLY!" : "")
-                        .append("<br>Comp scored: ").append(runs)
-                        .append("<br>Comp Total: ").append(compScore);
-                if (!isFirstInnings) {
-                    msg.append("<br>Target: ").append(target);
-                    if (compScore >= target) {
-                        lblMainDisplay.setText("<html><center>Comp put: " + comp
-                                + "<br><font color='red'>TARGET REACHED BY COMP!</font><br>GAME OVER</center></html>");
-                        lblMiniScore.setText("Score: " + userScore + " - " + compScore);
-                        cl.show(cardPanel, "END");
-                        showFinalPopup(); // FIX: auto show results
-                        return;
-                    }
-                }
+            }
+            int runs = calculateRuns(user, comp);
+            compScore += runs;
+            boolean bonus = isCrazyMode && user == comp;
+            lblContext.setText("<html><center>Comp put: " + comp
+                    + (bonus ? "<br><b>BONUS MULTIPLY!</b>" : "")
+                    + "<br>Comp scored: " + runs + "</center></html>");
+            updateScoreboard();
+            if (!isFirstInnings && compScore >= target) {
+                lblContext.setText("<html><center>Comp put: " + comp
+                        + "<br><b>TARGET REACHED BY COMP!</b><br>GAME OVER</center></html>");
+                lblPhase.setText("MATCH OVER");
+                updateScoreboard();
+                cl.show(cardPanel, "END");
+                showFinalPopup();
             }
         }
-        lblMainDisplay.setText(msg.append("</center></html>").toString());
-        lblMiniScore.setText("Score: " + userScore + " - " + compScore);
     }
 
-    private void handleOutSequence(StringBuilder msg, int compMove, int finalScore) {
-        msg.append("Comp chose: ").append(compMove).append("<br><font color='red'>OUT!</font>");
+    private void handleOutSequence(int compMove, int finalScore) {
         if (isFirstInnings) {
             isUserBatting = !isUserBatting;
             isFirstInnings = false;
             target = finalScore + 1;
-            msg.append("<br>Score: ").append(finalScore)
-                    .append("<br><font color='yellow'>Target: </font>").append(target).append(". ")
-                    .append("<br>").append(isUserBatting ? "You're Batting now." : "You're Bowling now.");
-            lblStatus.setText(isUserBatting ? "BATTING" : "BOWLING");
-            lblMainDisplay.setText(msg.append("</center></html>").toString());
+            ballsThisInnings = 0;
+            lblPhase.setText("INNINGS 2/2");
+            setRole(isUserBatting ? "BATTING" : "BOWLING", isUserBatting);
+            lblContext.setText("<html><center>Comp chose: " + compMove + "<br><b>OUT!</b>"
+                    + "<br>Score: " + finalScore
+                    + "<br>Target: " + target + ". "
+                    + (isUserBatting ? "You're batting now." : "You're bowling now.")
+                    + "</center></html>");
+            updateScoreboard();
         } else {
-            msg.append("<br><br><font color='orange' size='6'>GAME OVER!</font>");
-            lblMainDisplay.setText(msg.append("</center></html>").toString());
+            lblPhase.setText("MATCH OVER");
+            lblContext.setText("<html><center>Comp chose: " + compMove + "<br><b>OUT!</b>"
+                    + "<br><br><b>GAME OVER!</b></center></html>");
+            updateScoreboard();
             cl.show(cardPanel, "END");
-            showFinalPopup(); // FIX: auto show results
+            showFinalPopup();
         }
     }
 
@@ -303,7 +514,7 @@ public class CricketNeo_Standard extends JFrame {
         int diff = Math.abs(userScore - compScore);
 
         if (userScore > compScore) {
-            String trophy = "\uD83C\uDFC6"; // 🏆
+            String trophy = "🏆"; // 🏆
             result = "<html><center>"
                     + "<span style='font-size:60px'>" + trophy + "</span><br><br>"
                     + "<b><font color='blue'>CHAMPION!</font></b><br>"
@@ -317,7 +528,7 @@ public class CricketNeo_Standard extends JFrame {
                     + "You lost by " + diff + " runs!"
                     + "</center></html>";
         } else {
-            String shakeHands = "\uD83E\uDD1D";
+            String shakeHands = "🤝";
             result = "<html><center>"
                     + "<span style='font-size:60px'>" + shakeHands + "</span><br><br>"
                     + "<b><font color='blue'>IT'S A DRAW!</font></b><br>"
@@ -343,15 +554,21 @@ public class CricketNeo_Standard extends JFrame {
     }
 
     private void setupChoice() {
+        lblModeChip.setText(modeChipText());
+        modeChipPill.setVisible(true);
+        lblPhase.setText("SELECT ROLE");
+        lblContext.setText("<html><center>Mode set!<br>Pick your role.</center></html>");
         cl.show(cardPanel, "CHOICE");
-        lblMainDisplay.setText("<html><center>Mode Set!<br>Pick your role.</center></html>");
     }
 
     private void startMatch(boolean userBats) {
         isUserBatting = userBats;
+        ballsThisInnings = 0;
+        lblPhase.setText(isFirstInnings ? "INNINGS 1/2" : "INNINGS 2/2");
+        setRole(isUserBatting ? "BATTING" : "BOWLING", isUserBatting);
+        lblContext.setText("<html><center>Match Started!</center></html>");
+        updateScoreboard();
         cl.show(cardPanel, "PLAY");
-        lblStatus.setText(isUserBatting ? "BATTING" : "BOWLING");
-        lblMainDisplay.setText("<html><center>Match Started!</center></html>");
     }
 
     private boolean isOut(int u, int c) {
@@ -367,14 +584,19 @@ public class CricketNeo_Standard extends JFrame {
         compScore = 0;
         target = -1;
         isFirstInnings = true;
-        isCrazyMode = false; // FIX: reset crazy mode
-        lblMiniScore.setText("Score: 0 - 0");
-        lblMainDisplay.setText("<html><center>TOSS TIME!</center></html>");
+        isCrazyMode = false;
+        ballsThisInnings = 0;
+        lblPhase.setText("TOSS");
+        modeChipPill.setVisible(false);
+        setRole("—", false);
+        lblContext.setText("<html><center>Toss time! Choose ODD or EVEN.</center></html>");
+        updateScoreboard();
         cl.show(cardPanel, "TOSS");
     }
+
     private void confirmExit() {
         int choice = JOptionPane.showConfirmDialog(
-                frame,
+                this,
                 "Did you like it?",
                 "Exit",
                 JOptionPane.YES_NO_CANCEL_OPTION,
@@ -382,23 +604,20 @@ public class CricketNeo_Standard extends JFrame {
         );
 
         if (choice == JOptionPane.YES_OPTION) {
-            JOptionPane.showMessageDialog(frame,
+            JOptionPane.showMessageDialog(this,
                     "We're glad you enjoyed it 🙂",
                     "Goodbye",
                     JOptionPane.INFORMATION_MESSAGE);
             System.exit(0);
         } else if (choice == JOptionPane.NO_OPTION) {
-            JOptionPane.showMessageDialog(frame,
+            JOptionPane.showMessageDialog(this,
                     "We'll keep working on it 🙁",
                     "Goodbye",
                     JOptionPane.INFORMATION_MESSAGE);
             System.exit(0);
-        } else if (choice == JOptionPane.CANCEL_OPTION) {
-            // Do nothing, just return to the game
         }
+        // CANCEL_OPTION: do nothing, just return to the game
     }
-
-
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(CricketNeo_Standard::new);
