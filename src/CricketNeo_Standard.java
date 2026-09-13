@@ -41,24 +41,31 @@ public class CricketNeo_Standard extends JFrame {
     private JLabel lblPhase, lblModeChip, lblScoreBig, lblTargetText, lblNeedText, lblRoleText, lblBallsFaced, lblContext, lblTrayLabel;
     private JPanel dividerLine;
     private JPanel cardPanel, tossPanel, modePanel, choicePanel, playPanel, endPanel;
+    private JPanel numPad;
     private CardLayout cl = new CardLayout();
 
     private List<JButton> actionButtons = new ArrayList<>();
     private List<RoundButton> numberButtons = new ArrayList<>();
+    private List<RoundButton> endButtons = new ArrayList<>();
+
+    // ---- decision-wizard screens (ODD/EVEN, NORMAL/CRAZY, BATTING/BOWLING) ----
+    private List<WizardNode> wizardNodes = new ArrayList<>();
+    private List<JLabel> wizardMutedLabels = new ArrayList<>();
+    private List<DecisionCard> decisionCards = new ArrayList<>();
+
+    private static final int MARGIN = 32;
+    private static final int UTIL_BTN_SIZE = 44, UTIL_GAP = 6, UTIL_RIGHT_MARGIN = 20, UTIL_TOP = 16;
+    private static final int DASHBOARD_TOP = 50, DASHBOARD_HEIGHT = 230;
+    private static final int CARDPANEL_GAP = 10, BOTTOM_MARGIN = 26;
 
     public CricketNeo_Standard() {
         setTitle("CricketNeo - Hand Cricket Pro");
-        setSize(750, 650);
-        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
-                confirmExit();
-            }
-        });
+        setSize(600, 550);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(null);
         setLocationRelativeTo(null);
-        setResizable(false);
+        setResizable(true);
+        setMinimumSize(new Dimension(680, 560));
         setIconImage(
                 new ImageIcon(getClass().getResource("resources/CricketNeo.png")).getImage()
         );
@@ -68,10 +75,79 @@ public class CricketNeo_Standard extends JFrame {
         buildDashboard();
         buildCardPanel();
 
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                relayout();
+            }
+        });
+
         applyTheme(isDarkTheme);
         updateScoreboard();
+        relayout();
         cl.show(cardPanel, "TOSS");
         setVisible(true);
+    }
+
+    // ---------------------------------------------------------------
+    // Responsive layout (the window is resizable; everything below keeps
+    // the same relative margins instead of staying pinned to the original
+    // 750x650 pixel positions)
+    // ---------------------------------------------------------------
+
+    private void relayout() {
+        int w = getContentPane().getWidth();
+        int h = getContentPane().getHeight();
+        if (w <= 0 || h <= 0) return;
+
+        btnTheme.setBounds(w - UTIL_RIGHT_MARGIN - UTIL_BTN_SIZE, UTIL_TOP, UTIL_BTN_SIZE, 28);
+        btnHelp.setBounds(w - UTIL_RIGHT_MARGIN - (2 * UTIL_BTN_SIZE) - UTIL_GAP, UTIL_TOP, UTIL_BTN_SIZE, 28);
+
+        lblHeader.setBounds(0, 14, w, 34);
+
+        int dashW = Math.max(w - 2 * MARGIN, 300);
+        dashboardCard.setBounds(MARGIN, DASHBOARD_TOP, dashW, DASHBOARD_HEIGHT);
+        relayoutDashboardChildren(dashW);
+
+        int cardPanelY = DASHBOARD_TOP + DASHBOARD_HEIGHT + CARDPANEL_GAP;
+        int cardPanelW = dashW;
+        int cardPanelH = Math.max(h - cardPanelY - BOTTOM_MARGIN, 150);
+        cardPanel.setBounds(MARGIN, cardPanelY, cardPanelW, cardPanelH);
+
+        relayoutPlayPanel(cardPanelW, cardPanelH);
+        relayoutEndPanel(cardPanelW, cardPanelH);
+
+        revalidate();
+        repaint();
+    }
+
+    private void relayoutDashboardChildren(int dashW) {
+        int pillW = 260, pillH = 28;
+        modeChipPill.setBounds(Math.max(dashW - 20 - pillW, 160), 10, pillW, pillH);
+        int needW = 180;
+        needPill.setBounds(Math.max(dashW - 60 - needW, 200), 60, needW, 30);
+        int contentW = Math.max(dashW - 40, 200);
+        dividerLine.setBounds(20, 144, contentW, 1);
+        lblContext.setBounds(20, 154, contentW, 64);
+    }
+
+    private void relayoutPlayPanel(int panelW, int panelH) {
+        if (lblTrayLabel == null || numPad == null) return;
+        lblTrayLabel.setBounds(25, 20, Math.max(panelW - 50, 100), 20);
+        int numPadW = Math.max(panelW - 50, 200);
+        int numPadH = Math.max(panelH - 90, 100);
+        numPad.setBounds(25, 70, numPadW, numPadH);
+    }
+
+    private void relayoutEndPanel(int panelW, int panelH) {
+        if (endButtons.size() < 3) return;
+        int btnW = 150, btnH = 56, gap = 20;
+        int totalW = 3 * btnW + 2 * gap;
+        int xStart = Math.max((panelW - totalW) / 2, 10);
+        int y = Math.max((panelH - btnH) / 2, 10);
+        for (int i = 0; i < endButtons.size(); i++) {
+            endButtons.get(i).setBounds(xStart + i * (btnW + gap), y, btnW, btnH);
+        }
     }
 
     // ---------------------------------------------------------------
@@ -85,12 +161,14 @@ public class CricketNeo_Standard extends JFrame {
         btnTheme.setBounds(750 - rightMargin - btnSize, 16, btnSize, 28);
         btnTheme.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 18));
         btnTheme.addActionListener(e -> toggleTheme());
+        addAccentTintOnHover(btnTheme);
         add(btnTheme);
 
         btnHelp = new RoundButton("?", 10);
         btnHelp.setBounds(750 - rightMargin - (2 * btnSize) - gap, 16, btnSize, 28);
         btnHelp.setFont(new Font("SansSerif", Font.BOLD, 14));
         btnHelp.addActionListener(e -> showInstructions());
+        addAccentTintOnHover(btnHelp);
         add(btnHelp);
     }
 
@@ -170,9 +248,9 @@ public class CricketNeo_Standard extends JFrame {
         cardPanel.setBounds(40, 302, 670, 308);
         cardPanel.setOpaque(false);
 
-        tossPanel = createContainerPanel();
-        addActionButton(tossPanel, "ODD", 185, 120, 140, 54, e -> startToss("o"));
-        addActionButton(tossPanel, "EVEN", 345, 120, 140, 54, e -> startToss("e"));
+        tossPanel = buildWizardPanel(0,
+                "ODD", "the sum of both numbers is odd", e -> startToss("o"),
+                "EVEN", "the sum of both numbers is even", e -> startToss("e"));
 
         playPanel = createContainerPanel();
         lblTrayLabel = new JLabel("PLAY A BALL");
@@ -180,7 +258,7 @@ public class CricketNeo_Standard extends JFrame {
         lblTrayLabel.setFont(new Font("Consolas", Font.BOLD, 11));
         playPanel.add(lblTrayLabel);
 
-        JPanel numPad = new JPanel(new GridLayout(2, 5, 12, 12));
+        numPad = new JPanel(new GridLayout(2, 5, 12, 12));
         numPad.setOpaque(false);
         numPad.setBounds(25, 70, 620, 170);
         for (int i = 0; i < 10; i++) {
@@ -188,40 +266,33 @@ public class CricketNeo_Standard extends JFrame {
             RoundButton b = new RoundButton(String.valueOf(val), 10);
             b.setFont(new Font("Consolas", Font.BOLD, 20));
             b.addActionListener(e -> handleInput(val));
-            b.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseEntered(MouseEvent e) {
-                    b.setBackground(mix(cSurface, cAccent, 0.35));
-                }
-
-                @Override
-                public void mouseExited(MouseEvent e) {
-                    b.setBackground(cSurface);
-                }
-            });
+            addAccentTintOnHover(b);
             numberButtons.add(b);
             numPad.add(b);
         }
         playPanel.add(numPad);
 
-        modePanel = createContainerPanel();
-        addActionButton(modePanel, "NORMAL", 185, 120, 140, 54, e -> {
-            isCrazyMode = false;
-            setupChoice();
-        });
-        addActionButton(modePanel, "CRAZY", 345, 120, 140, 54, e -> {
-            isCrazyMode = true;
-            setupChoice();
-        });
+        modePanel = buildWizardPanel(1,
+                "NORMAL", "out on an exact number match", e -> {
+                    isCrazyMode = false;
+                    setupChoice();
+                },
+                "CRAZY", "out on ±1, exact match multiplies runs instead", e -> {
+                    isCrazyMode = true;
+                    setupChoice();
+                });
 
-        choicePanel = createContainerPanel();
-        addActionButton(choicePanel, "BATTING", 155, 115, 170, 60, e -> startMatch(true));
-        addActionButton(choicePanel, "BOWLING", 345, 115, 170, 60, e -> startMatch(false));
+        choicePanel = buildWizardPanel(2,
+                "BATTING", "you pick the runs for each ball", e -> startMatch(true),
+                "BOWLING", "the computer picks the runs for each ball", e -> startMatch(false));
 
         endPanel = createContainerPanel();
-        addActionButton(endPanel, "RESULTS!", 90, 125, 150, 56, e -> showFinalPopup());
-        addActionButton(endPanel, "RESTART", 260, 125, 150, 56, e -> restartGame());
-        addActionButton(endPanel, "EXIT", 430, 125, 150, 56, e -> confirmExit());
+        endButtons.add(addActionButton(endPanel, "RESULTS!", 90, 125, 150, 56, e -> showFinalPopup()));
+        endButtons.add(addActionButton(endPanel, "RESTART", 260, 125, 150, 56, e -> restartGame()));
+        endButtons.add(addActionButton(endPanel, "EXIT", 430, 125, 150, 56, e -> confirmExit()));
+        addDarkenOnHover(endButtons.get(0));
+        addDarkenOnHover(endButtons.get(1));
+        addDarkenOnHover(endButtons.get(2));
 
         cardPanel.add(tossPanel, "TOSS");
         cardPanel.add(playPanel, "PLAY");
@@ -238,13 +309,233 @@ public class CricketNeo_Standard extends JFrame {
         return p;
     }
 
-    private void addActionButton(JPanel panel, String text, int x, int y, int w, int h, ActionListener al) {
+    private RoundButton addActionButton(JPanel panel, String text, int x, int y, int w, int h, ActionListener al) {
         RoundButton b = new RoundButton(text, 10);
         b.setBounds(x, y, w, h);
         b.setFont(new Font("Segoe UI", Font.BOLD, 16));
         b.addActionListener(al);
         actionButtons.add(b);
         panel.add(b);
+        return b;
+    }
+
+    /** Darkens toward black on hover; used for the accent-colored toss/mode buttons. */
+    private void addDarkenOnHover(RoundButton b) {
+        b.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                b.setBackground(mix(cAccent, Color.BLACK, 0.39));
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                b.setBackground(cAccent);
+            }
+        });
+    }
+
+    /** Tints toward the accent color on hover; used for the number pad and the utility buttons. */
+    private void addAccentTintOnHover(JButton b) {
+        b.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                b.setBackground(mix(cSurface, cAccent, 0.35));
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                b.setBackground(cSurface);
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------
+    // Decision-wizard screens (ODD/EVEN, NORMAL/CRAZY, BATTING/BOWLING)
+    // ---------------------------------------------------------------
+
+    /**
+     * Builds a screen styled after the "Decision Wizard" concept: a small
+     * TOSS/MODE/CHOICE/PLAY/END flow diagram with the current step
+     * highlighted, and the two choices below it as bordered cards instead
+     * of filled buttons.
+     */
+    private JPanel buildWizardPanel(int activeIndex,
+                                     String leftTitle, String leftDesc, ActionListener leftAl,
+                                     String rightTitle, String rightDesc, ActionListener rightAl) {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.weightx = 1;
+
+        gbc.gridy = 0;
+        gbc.weighty = 0;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.anchor = GridBagConstraints.CENTER;
+        gbc.insets = new Insets(6, 10, 14, 10);
+        panel.add(buildFlowDiagram(activeIndex), gbc);
+
+        JPanel cards = new JPanel(new GridLayout(1, 2, 20, 0));
+        cards.setOpaque(false);
+        cards.add(buildDecisionCard(leftTitle, leftDesc, leftAl));
+        cards.add(buildDecisionCard(rightTitle, rightDesc, rightAl));
+
+        gbc.gridy = 1;
+        gbc.weighty = 0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(0, 24, 0, 24);
+        panel.add(cards, gbc);
+
+        // absorb any leftover space below instead of centering the content in it,
+        // so the diagram and cards stay clustered near the top
+        gbc.gridy = 2;
+        gbc.weighty = 1;
+        gbc.fill = GridBagConstraints.BOTH;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        panel.add(Box.createGlue(), gbc);
+
+        return panel;
+    }
+
+    private JPanel buildFlowDiagram(int activeIndex) {
+        String[] names = {"TOSS", "MODE", "CHOICE", "PLAY", "END"};
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 2));
+        row.setOpaque(false);
+        for (int i = 0; i < names.length; i++) {
+            JLabel node = new JLabel(names[i], SwingConstants.CENTER);
+            node.setOpaque(true);
+            node.setFont(new Font("Consolas", Font.BOLD, 12));
+            wizardNodes.add(new WizardNode(node, i, activeIndex));
+            row.add(node);
+            if (i < names.length - 1) {
+                JLabel arrow = new JLabel("→");
+                arrow.setFont(new Font("SansSerif", Font.PLAIN, 13));
+                wizardMutedLabels.add(arrow);
+                row.add(arrow);
+            }
+        }
+        return row;
+    }
+
+    private CardButton buildDecisionCard(String title, String desc, ActionListener al) {
+        CardButton b = new CardButton(14);
+        b.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        b.addActionListener(al);
+        decisionCards.add(new DecisionCard(b, title, desc));
+        addCardHoverEffect(b);
+        return b;
+    }
+
+    private void addCardHoverEffect(CardButton b) {
+        b.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                b.setBackground(mix(cSurface, cAccent, 0.12));
+                b.setBorderColor(cAccent);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                b.setBackground(cSurface);
+                b.setBorderColor(cLine);
+            }
+        });
+    }
+
+    private void refreshWizardNode(WizardNode n) {
+        JLabel node = n.label;
+        Color borderColor;
+        if (n.index < n.activeIndex) {
+            node.setBackground(cBg);
+            node.setForeground(cInk);
+            borderColor = cMuted;
+        } else if (n.index == n.activeIndex) {
+            node.setBackground(cAccent);
+            node.setForeground(Color.WHITE);
+            borderColor = cAccent;
+        } else {
+            node.setBackground(cBg);
+            node.setForeground(cMuted);
+            borderColor = cLine;
+        }
+        node.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(borderColor, 1),
+                BorderFactory.createEmptyBorder(7, 13, 7, 13)));
+    }
+
+    private void refreshDecisionCard(DecisionCard dc) {
+        dc.button.setBackground(cSurface);
+        dc.button.setBorderColor(cLine);
+        setCardHtml(dc.button, dc.title, dc.desc);
+    }
+
+    private void setCardHtml(CardButton b, String title, String desc) {
+        b.setText("<html><center><font color='" + toHex(cInk) + "'><b>" + title + "</b></font><br>"
+                + "<font color='" + toHex(cMuted) + "' size='2'>" + desc + "</font></center></html>");
+    }
+
+    private static String toHex(Color c) {
+        return String.format("#%02X%02X%02X", c.getRed(), c.getGreen(), c.getBlue());
+    }
+
+    /** One node in a wizard's TOSS/MODE/CHOICE/PLAY/END flow diagram. */
+    private static class WizardNode {
+        final JLabel label;
+        final int index;
+        final int activeIndex;
+
+        WizardNode(JLabel label, int index, int activeIndex) {
+            this.label = label;
+            this.index = index;
+            this.activeIndex = activeIndex;
+        }
+    }
+
+    /** A bordered (not filled) option card, paired with the text used to rebuild its HTML on theme changes. */
+    private static class DecisionCard {
+        final CardButton button;
+        final String title;
+        final String desc;
+
+        DecisionCard(CardButton button, String title, String desc) {
+            this.button = button;
+            this.title = title;
+            this.desc = desc;
+        }
+    }
+
+    /** Rounded card-style button: fills its background and strokes a border, instead of RoundButton's solid fill. */
+    private static class CardButton extends JButton {
+        private final int radius;
+        private Color borderColor = Color.GRAY;
+
+        CardButton(int radius) {
+            this.radius = radius;
+            setContentAreaFilled(false);
+            setFocusPainted(false);
+            setBorderPainted(false);
+            setOpaque(false);
+            setHorizontalAlignment(SwingConstants.CENTER);
+        }
+
+        void setBorderColor(Color c) {
+            this.borderColor = c;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(getBackground());
+            g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
+            g2.setStroke(new BasicStroke(2f));
+            g2.setColor(borderColor);
+            g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, radius, radius);
+            g2.dispose();
+            super.paintComponent(g);
+        }
     }
 
     /** Simple rounded-rectangle container, used for the dashboard card and its pill badges. */
@@ -342,6 +633,15 @@ public class CricketNeo_Standard extends JFrame {
         for (RoundButton b : numberButtons) {
             b.setBackground(cSurface);
             b.setForeground(cInk);
+        }
+        for (WizardNode n : wizardNodes) {
+            refreshWizardNode(n);
+        }
+        for (JLabel l : wizardMutedLabels) {
+            l.setForeground(cMuted);
+        }
+        for (DecisionCard dc : decisionCards) {
+            refreshDecisionCard(dc);
         }
 
         repaint();
