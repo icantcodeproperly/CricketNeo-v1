@@ -2,7 +2,7 @@
 <launch4jConfig>
   <dontWrapJar>true</dontWrapJar>
   <headerType>gui</headerType>
-  <jar>../../out/artifacts/CricketNeo_jar/CricketNeo_Standard.jar</jar>
+  <jar>CricketNeo_Standard.jar</jar>
   <outfile>../../out/artifacts/CricketNeo_jar/CricketNeo_Standard.exe</outfile>
   <errTitle></errTitle>
   <cmdLine></cmdLine>
@@ -15,7 +15,7 @@
   <manifest></manifest>
   <icon>../../src/resources/CricketNeo.ico</icon>
   <jre>
-    <path>../../out/artifacts/CricketNeo_jar/custom-jre</path>
+    <path>custom-jre</path>
     <requiresJdk>false</requiresJdk>
     <requires64Bit>false</requires64Bit>
     <minVersion>26</minVersion>
